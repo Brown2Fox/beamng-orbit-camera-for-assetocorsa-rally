@@ -5,8 +5,6 @@ BeamNG-style orbit camera for Assetto Corsa Rally, implemented as a UE4SS C++ mo
 > [!WARNING]
 > This is an experimental, unofficial mod. It hooks into the running game and depends on undocumented Assetto Corsa Rally and UE4SS internals. Game updates, UE4SS changes, other mods, or an unsupported binary combination may cause incorrect camera behavior, failure to load, crashes, or corrupted settings. Use it at your own risk and keep backups of files you replace.
 
-The camera logic is based on the BeamNG-style orbit behavior from the original Assetto Corsa implementation and includes movement-following heading, manual orbit/zoom, recentering, dynamic FOV/pitch/height, body-geometry references, and four-ray camera collision with the FULL/EDGE optimization.
-
 ## Tested compatibility
 
 This is the currently tested combination, not a promise of compatibility with later builds:
