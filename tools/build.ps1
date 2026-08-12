@@ -55,8 +55,8 @@ cmake `
     -S $RepoRoot `
     -B $BuildDir `
     -G "Visual Studio 17 2022" `
-    -DBEAMNG_ORBIT_CAMERA_UE4SS_DIR="$UE4SSDir" `
-    -DBEAMNG_ORBIT_CAMERA_ENABLE_DIAGNOSTICS=$Diagnostics
+    "-DBEAMNG_ORBIT_CAMERA_UE4SS_DIR=$UE4SSDir" `
+    "-DBEAMNG_ORBIT_CAMERA_ENABLE_DIAGNOSTICS=$Diagnostics"
 
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

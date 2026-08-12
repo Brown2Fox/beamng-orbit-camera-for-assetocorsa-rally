@@ -115,6 +115,8 @@ private:
 
     void ProcessEventPost(UObject* Context, UFunction* Function, void* Params);
 
+    bool IsThirdFarCameraActive();
+
     bool UpdateOrbitCamera(UObject* Car, const FVector& CarLocation, const FRotator& CarRotation, double DeltaTimeSeconds);
 
     void InvalidateCollisionTraceCache();
@@ -245,6 +247,8 @@ private:
     std::atomic<uint64_t> FrameSerial{0};
     std::atomic<double> DeltaTime{1.0/60.0};
 
+    bool bWasThirdFarCameraActive{false};
+
     bool bOrbitInitialized{false};
     double OrbitYawRad{0.0};
     double OrbitPitchRad{0.0};
@@ -299,4 +303,5 @@ private:
 
     bool bLoggedFirstOutput{false};
     bool bLoggedFailure{false};
+    bool bLoggedGetCurrentCameraUnavailable{false};
 };

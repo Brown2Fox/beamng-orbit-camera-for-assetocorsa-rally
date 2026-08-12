@@ -13,7 +13,7 @@ using namespace BeamNGOrbitCamera::Reflection;
 FBeamNGOrbitCameraMod::FBeamNGOrbitCameraMod() : CppUserModBase(), CreateListener(this), DeleteListener(this)
 {
     ModName = STR("BeamNGOrbitCamera");
-    ModVersion = STR("0.12.10");
+    ModVersion = STR("0.12.12");
     ModDescription = STR("BeamNG-style orbit camera core for Assetto Corsa Rally");
     ModAuthors = STR("Brown2Fox");
 
@@ -61,6 +61,10 @@ FBeamNGOrbitCameraMod::~FBeamNGOrbitCameraMod()
 
 void FBeamNGOrbitCameraMod::on_unreal_init()
 {
+    Output::send<LogLevel::Verbose>(
+        STR("[BeamNGOrbitCamera] v0.12.12 experimental | tested with ACR Steam build 24097451 | UE4SS 1c1a1497 | target ThirdFar\n")
+    );
+
     UObjectArray::AddUObjectCreateListener(&CreateListener);
     UObjectArray::AddUObjectDeleteListener(&DeleteListener);
     bCreateListenerRegistered = true;
@@ -183,6 +187,19 @@ void FBeamNGOrbitCameraMod::ProcessEventPost(UObject* Context, UFunction* Functi
     }
 #endif
     if (!bEnabled.load(std::memory_order_acquire))
+    {
+        bWasThirdFarCameraActive = false;
+        return;
+    }
+
+    const bool bThirdFarCameraActive = IsThirdFarCameraActive();
+    if (bThirdFarCameraActive != bWasThirdFarCameraActive)
+    {
+        ResetCameraState();
+        bWasThirdFarCameraActive = bThirdFarCameraActive;
+    }
+
+    if (!bThirdFarCameraActive)
         return;
 
     FStructAccess location{};
@@ -233,7 +250,26 @@ void FBeamNGOrbitCameraMod::ProcessEventPost(UObject* Context, UFunction* Functi
     if (!bLoggedFirstOutput)
     {
         bLoggedFirstOutput = true;
+        Output::send<LogLevel::Verbose>(STR("[BeamNGOrbitCamera] ThirdFar override active.\n"));
     }
+}
+
+bool FBeamNGOrbitCameraMod::IsThirdFarCameraActive()
+{
+    UObject* CurrentCamera = nullptr;
+    if (!CallNoArgObjectFunction(CameraManager, STR("GetCurrentCamera"), CurrentCamera))
+    {
+        if (!bLoggedGetCurrentCameraUnavailable)
+        {
+            bLoggedGetCurrentCameraUnavailable = true;
+            Output::send<LogLevel::Warning>(
+                STR("[BeamNGOrbitCamera] GetCurrentCamera is unavailable; the game or UE4SS version may be incompatible.\n")
+            );
+        }
+        return false;
+    }
+
+    return CurrentCamera && CurrentCamera->GetName() == STR("ThirdFar");
 }
 
 bool FBeamNGOrbitCameraMod::UpdateOrbitCamera(
@@ -657,6 +693,7 @@ double FBeamNGOrbitCameraMod::CalculateDynamicHeightCm(double Speed) const
 
 void FBeamNGOrbitCameraMod::ResetCameraState()
 {
+    bWasThirdFarCameraActive = false;
     bOrbitInitialized = false;
     OrbitYawRad = 0.0;
     OrbitPitchRad = 0.0;

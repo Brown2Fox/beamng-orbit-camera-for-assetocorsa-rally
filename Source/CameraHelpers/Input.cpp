@@ -117,6 +117,13 @@ void FBeamNGOrbitCameraMod::PollHotkeys()
         ResetCameraState();
         Output::send<LogLevel::Verbose>(bNextEnabled
                 ? STR("[BeamNGOrbitCamera] ORBIT CAMERA: ON\n") : STR("[BeamNGOrbitCamera] ORBIT CAMERA: OFF\n"));
+
+        if (bNextEnabled && !CameraManager)
+        {
+            Output::send<LogLevel::Warning>(
+                STR("[BeamNGOrbitCamera] Camera manager has not been discovered; the session may not be ready or the game version may be incompatible.\n")
+            );
+        }
     }
 
     if (bInsertPressed)
@@ -329,4 +336,3 @@ void FBeamNGOrbitCameraMod::MergeGamepadInput(FOrbitInput& Out, double DeltaTime
 
     Out.ZoomStep = std::clamp(Out.ZoomStep + GamepadZoom * DeltaTimeSeconds, -DeltaTimeSeconds, DeltaTimeSeconds);
 }
-
