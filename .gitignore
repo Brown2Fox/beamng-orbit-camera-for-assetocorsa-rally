@@ -1,0 +1,14 @@
+# Local build output
+/build/
+
+# UE4SS is an external checkout and must match the runtime ABI.
+/RE-UE4SS/
+
+# Visual Studio / CMake user state
+/.vs/
+CMakeUserPresets.json
+*.user
+*.suo
+
+# Visual Studio Code workspace state
+/.vscode/
