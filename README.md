@@ -149,7 +149,7 @@ Build and deploy the DLL, configuration, and asset bundle with:
 .\tools\build.ps1 Shipping -Deploy -GameDir "D:\SteamLibrary\steamapps\common\Assetto Corsa Rally"
 ```
 
-Alternatively, set `ASSETO_CORSA_RALLY_HOME` and omit `-GameDir`. Deploy requires an existing `acr/Binaries/Win64/ue4ss` directory, compares the DLL and asset bundle by SHA-256, and copies only changed files.
+Alternatively, set `ASSETO_CORSA_RALLY_HOME` and omit `-GameDir`. Deploy installs the mod DLL and asset bundle into the game directory and requires UE4SS to be installed first.
 
 ## Credits
 
