@@ -111,6 +111,12 @@ private:
 
     void EngineTickPre(float DeltaSeconds);
 
+    void EnsureDedicatedCameraModifier();
+
+    void RestoreCleanCameraPose();
+
+    static bool CameraPosesMatch(const FCameraPose& Left, const FCameraPose& Right);
+
     void PollHotkeys();
 
     void ProcessEventPost(UObject* Context, UFunction* Function, void* Params);
@@ -199,6 +205,8 @@ private:
     bool bBodyBoundsValid{false};
 
     UObject* CameraManager{nullptr};
+    UClass* DedicatedModifierClass{nullptr};
+    UObject* DedicatedModifierInstance{nullptr};
     UObject* KismetSystemLibrary{nullptr};
     UFunction* LineTraceSingleFunction{nullptr};
 
@@ -301,7 +309,18 @@ private:
     FRotator OutputRotation{};
     double OutputFov{65.0};
 
+    UObject* PendingCleanPoseManager{nullptr};
+    FCameraPose PendingCleanPose{};
+    FCameraPose PendingWrittenPose{};
+    bool bCleanPosePending{false};
+
     bool bLoggedFirstOutput{false};
+    bool bLoggedDedicatedModifierActive{false};
+    bool bLoggedDedicatedModifierInstalled{false};
+    bool bLoggedDedicatedModifierInstallFailure{false};
     bool bLoggedFailure{false};
     bool bLoggedGetCurrentCameraUnavailable{false};
+    bool bLoggedCleanPoseIsolationActive{false};
+    bool bLoggedCleanPoseCaptureUnavailable{false};
+    bool bLoggedCleanPoseRestoreUnavailable{false};
 };

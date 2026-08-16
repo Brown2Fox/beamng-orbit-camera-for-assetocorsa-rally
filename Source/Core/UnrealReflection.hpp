@@ -20,11 +20,18 @@ namespace BeamNGOrbitCamera::Reflection
 
     double ReadViewTargetAspectRatio(UObject* CameraManager);
 
+    bool ReadCameraCachePose(UObject* CameraManager, FCameraPose& OutPose);
+
+    bool WriteCameraCachePose(UObject* CameraManager, const FCameraPose& Pose);
+
     bool ObjectOuterChainContains(UObject* Object, UObject* WantedOuter);
 
     UObject* ReadObjectPropertyByName(UObject* Object, const CharType* PropertyName);
 
     bool CallNoArgObjectFunction(UObject* Context, const CharType* FunctionName, UObject*& OutObject);
+
+    bool CallClassArgObjectFunction(UObject* Context, const CharType* FunctionName, const CharType* ArgumentName,
+        UClass* Argument, UObject*& OutObject);
 
     bool CallTwoOutVec3Function(UObject* Context, const CharType* FunctionName, const CharType* FirstName,
         MiniMath::FVector& First, const CharType* SecondName, MiniMath::FVector& Second);

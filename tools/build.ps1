@@ -28,9 +28,41 @@ function Write-SuccessBanner {
     Write-Host ""
 }
 
+function Find-AcrDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $Current = if (Test-Path $Path -PathType Container) {
+        (Resolve-Path $Path).Path
+    }
+    else {
+        Split-Path $Path -Parent
+    }
+
+    while (-not [string]::IsNullOrWhiteSpace($Current)) {
+        if ((Split-Path $Current -Leaf) -ieq "acr") {
+            return $Current
+        }
+
+        $Parent = Split-Path $Current -Parent
+        if ([string]::IsNullOrWhiteSpace($Parent) -or $Parent -eq $Current) {
+            break
+        }
+
+        $Current = $Parent
+    }
+
+    throw "Could not locate the game's 'acr' directory from '$Path'. Pass -GameDir <Assetto Corsa Rally root>."
+}
+
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 $Target = "BeamNGOrbitCamera"
 $CMakeConfig = "Game__Shipping__Win64"
+$RepoPak = Join-Path $RepoRoot "Data\BeamNGOrbitModifier.pak"
+$RepoUcas = Join-Path $RepoRoot "Data\BeamNGOrbitModifier.ucas"
+$RepoUtoc = Join-Path $RepoRoot "Data\BeamNGOrbitModifier.utoc"
 
 if ([string]::IsNullOrWhiteSpace($UE4SSDir)) {
     $UE4SSDir = Join-Path $RepoRoot "RE-UE4SS"
@@ -50,6 +82,9 @@ Write-Host "  UE4SS:       $UE4SSDir"
 Write-Host "  CMake config: $CMakeConfig"
 Write-Host "  Diagnostics: $Diagnostics"
 Write-Host "  Build dir:   $BuildDir"
+Write-Host "  Camera PAK:  $(if (Test-Path $RepoPak) { $RepoPak } else { 'not present (optional)' })"
+Write-Host "  Camera UCAS:  $(if (Test-Path $RepoUcas) { $RepoUcas } else { 'not present (optional)' })"
+Write-Host "  Camera UTOC:  $(if (Test-Path $RepoUtoc) { $RepoUtoc } else { 'not present (optional)' })"
 
 cmake `
     -S $RepoRoot `
@@ -132,6 +167,38 @@ if ((Test-Path $RepoConfig) -and -not (Test-Path $GameConfig)) {
 }
 elseif (Test-Path $GameConfig) {
     Write-Host "Config preserved: $GameConfig"
+}
+
+if (Test-Path $RepoPak && Test-Path $RepoUcas && Test-Path $RepoUtoc) {
+    $AcrDir = if (-not [string]::IsNullOrWhiteSpace($GameDir)) {
+        $GameDirLeaf = Split-Path $GameDir -Leaf
+        if ($GameDirLeaf -ieq "acr") {
+            $GameDir
+        }
+        else {
+            Join-Path $GameDir "acr"
+        }
+    }
+    else {
+        Find-AcrDirectory -Path $GameModDll
+    }
+
+    $PaksDir = Join-Path $AcrDir "Content\Paks"
+    $GamePak = Join-Path $PaksDir "BeamNGOrbitModifier.pak"
+    $GameUcas = Join-Path $PaksDir "BeamNGOrbitModifier.ucas"
+    $GameUtoc = Join-Path $PaksDir "BeamNGOrbitModifier.utoc"
+
+    New-Item -ItemType Directory -Force -Path $PaksDir | Out-Null
+    Copy-Item -Force $RepoPak $GamePak
+    Copy-Item -Force $RepoUcas $GameUcas
+    Copy-Item -Force $RepoUtoc $GameUtoc
+
+    Write-Host "Deployed camera modifier PAK: $GamePak"
+    Write-Host "Deployed camera modifier UCAS: $GameUcas"
+    Write-Host "Deployed camera modifier UTOC: $GameUtoc"
+}
+else {
+    throw "Deploy requires the dedicated camera modifier PAK/UCAS/UTOC at '$RepoPak'."
 }
 
 Write-Host "Deployed: $GameModDll"

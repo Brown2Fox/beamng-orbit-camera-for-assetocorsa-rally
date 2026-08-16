@@ -3,6 +3,9 @@
 #include "Core/MiniMath.hpp"
 #include "Core/UnrealReflection.hpp"
 
+#include <Unreal/FAssetData.hpp>
+#include <Unreal/UAssetRegistryHelpers.hpp>
+
 #include <algorithm>
 #include <cmath>
 
@@ -10,10 +13,19 @@ namespace MiniMath = BeamNGOrbitCamera::MiniMath;
 using namespace BeamNGOrbitCamera::MiniMath;
 using namespace BeamNGOrbitCamera::Reflection;
 
+namespace
+{
+    constexpr auto DedicatedModifierClassName = STR("BP_BeamNGOrbitModifier_C");
+    constexpr auto DedicatedModifierPackageName =
+        STR("/Game/Mods/BeamNGOrbitModifier/BP_BeamNGOrbitModifier");
+    constexpr auto DedicatedModifierClassFullName =
+        STR("BlueprintGeneratedClass /Game/Mods/BeamNGOrbitModifier/BP_BeamNGOrbitModifier.BP_BeamNGOrbitModifier_C");
+}
+
 FBeamNGOrbitCameraMod::FBeamNGOrbitCameraMod() : CppUserModBase(), CreateListener(this), DeleteListener(this)
 {
     ModName = STR("BeamNGOrbitCamera");
-    ModVersion = STR("0.12.12");
+    ModVersion = STR("0.13.4");
     ModDescription = STR("BeamNG-style orbit camera core for Assetto Corsa Rally");
     ModAuthors = STR("Brown2Fox");
 
@@ -48,6 +60,8 @@ FBeamNGOrbitCameraMod::~FBeamNGOrbitCameraMod()
     CreateListener.Owner = nullptr;
     DeleteListener.Owner = nullptr;
     CameraManager = nullptr;
+    DedicatedModifierClass = nullptr;
+    DedicatedModifierInstance = nullptr;
     InvalidateCollisionTraceCache();
     InvalidateBodyGeometryCache();
 
@@ -62,7 +76,7 @@ FBeamNGOrbitCameraMod::~FBeamNGOrbitCameraMod()
 void FBeamNGOrbitCameraMod::on_unreal_init()
 {
     Output::send<LogLevel::Verbose>(
-        STR("[BeamNGOrbitCamera] v0.12.12 experimental | tested with ACR Steam build 24097451 | UE4SS 1c1a1497 | target ThirdFar\n")
+        STR("[BeamNGOrbitCamera] v0.13.4 experimental | tested with ACR Steam build 24097451 | UE4SS 1c1a1497 | target ThirdFar | self-loaded modifier\n")
     );
 
     UObjectArray::AddUObjectCreateListener(&CreateListener);
@@ -118,6 +132,8 @@ void FBeamNGOrbitCameraMod::OnObjectCreated(UObject* Object)
     if (FullName.contains(STR("MainMenu"))) return;
 
     CameraManager = Object;
+    DedicatedModifierInstance = nullptr;
+    bLoggedDedicatedModifierInstallFailure = false;
     bEnabled.store(false, std::memory_order_release);
     ResetCameraState();
 }
@@ -137,8 +153,20 @@ void FBeamNGOrbitCameraMod::OnObjectDeleted(UObject* Object)
     if (Object && Object == CameraManager)
     {
         CameraManager = nullptr;
+        DedicatedModifierInstance = nullptr;
         bEnabled.store(false, std::memory_order_release);
         ResetCameraState();
+    }
+
+    if (Object && Object == DedicatedModifierInstance)
+    {
+        DedicatedModifierInstance = nullptr;
+    }
+
+    if (Object && Object == DedicatedModifierClass)
+    {
+        DedicatedModifierClass = nullptr;
+        DedicatedModifierInstance = nullptr;
     }
 }
 
@@ -147,6 +175,8 @@ void FBeamNGOrbitCameraMod::OnObjectArrayShutdown()
     bCreateListenerRegistered = false;
     bDeleteListenerRegistered = false;
     CameraManager = nullptr;
+    DedicatedModifierClass = nullptr;
+    DedicatedModifierInstance = nullptr;
     InvalidateCollisionTraceCache();
     InvalidateBodyGeometryCache();
     bEnabled.store(false, std::memory_order_release);
@@ -155,6 +185,14 @@ void FBeamNGOrbitCameraMod::OnObjectArrayShutdown()
 
 void FBeamNGOrbitCameraMod::EngineTickPre(float DeltaSeconds)
 {
+    // The previous frame's BlueprintModifyCamera output is stored in
+    // CameraCachePrivate and becomes input to the next camera update. Restore
+    // the game's clean output before that update so the orbit override remains
+    // a presentation-only result instead of feeding back into camera blending
+    // and modifier state.
+    RestoreCleanCameraPose();
+    EnsureDedicatedCameraModifier();
+
     const double DeltaTimeSeconds = std::clamp(static_cast<double>(DeltaSeconds), 1.0 / 500.0, 0.05);
 
     DeltaTime.store(DeltaTimeSeconds, std::memory_order_release);
@@ -163,13 +201,182 @@ void FBeamNGOrbitCameraMod::EngineTickPre(float DeltaSeconds)
     PollHotkeys();
 }
 
+void FBeamNGOrbitCameraMod::EnsureDedicatedCameraModifier()
+{
+    if (!CameraManager || DedicatedModifierInstance)
+        return;
+
+    if (!DedicatedModifierClass)
+    {
+        // Assets from a separately mounted mod container are not necessarily
+        // merged into the game's searchable Asset Registry. UE4SS's
+        // BPModLoader handles UE 5.1+ packages the same way: build the minimal
+        // FAssetData key and ask AssetRegistryHelpers to load it directly.
+        FAssetData ModifierAssetData{};
+        ModifierAssetData.SetPackageName(FName(DedicatedModifierPackageName, FNAME_Add));
+        ModifierAssetData.SetAssetName(FName(DedicatedModifierClassName, FNAME_Add));
+
+        UObject* LoadedClassObject = UAssetRegistryHelpers::GetAsset(ModifierAssetData);
+        if (LoadedClassObject)
+        {
+            DedicatedModifierClass = static_cast<UClass*>(LoadedClassObject);
+        }
+
+        if (!DedicatedModifierClass)
+        {
+            if (!bLoggedDedicatedModifierInstallFailure)
+            {
+                bLoggedDedicatedModifierInstallFailure = true;
+                Output::send<LogLevel::Warning>(
+                    STR("[BeamNGOrbitCamera] Could not load dedicated camera modifier class: {} / {}.\n"),
+                    DedicatedModifierPackageName,
+                    DedicatedModifierClassName
+                );
+            }
+            return;
+        }
+    }
+
+    UObject* Modifier = nullptr;
+    if (!CallClassArgObjectFunction(CameraManager, STR("FindCameraModifierByClass"),
+            STR("ModifierClass"), DedicatedModifierClass, Modifier))
+    {
+        if (!bLoggedDedicatedModifierInstallFailure)
+        {
+            bLoggedDedicatedModifierInstallFailure = true;
+            Output::send<LogLevel::Warning>(
+                STR("[BeamNGOrbitCamera] FindCameraModifierByClass reflection failed.\n")
+            );
+        }
+        return;
+    }
+
+    const bool bAlreadyInstalled = Modifier != nullptr;
+    if (!Modifier && !CallClassArgObjectFunction(CameraManager, STR("AddNewCameraModifier"),
+            STR("ModifierClass"), DedicatedModifierClass, Modifier))
+    {
+        if (!bLoggedDedicatedModifierInstallFailure)
+        {
+            bLoggedDedicatedModifierInstallFailure = true;
+            Output::send<LogLevel::Warning>(
+                STR("[BeamNGOrbitCamera] AddNewCameraModifier reflection failed.\n")
+            );
+        }
+        return;
+    }
+
+    if (!Modifier)
+    {
+        if (!bLoggedDedicatedModifierInstallFailure)
+        {
+            bLoggedDedicatedModifierInstallFailure = true;
+            Output::send<LogLevel::Warning>(
+                STR("[BeamNGOrbitCamera] AddNewCameraModifier returned null.\n")
+            );
+        }
+        return;
+    }
+
+    DedicatedModifierInstance = Modifier;
+    bLoggedDedicatedModifierInstallFailure = false;
+
+    if (!bLoggedDedicatedModifierInstalled)
+    {
+        bLoggedDedicatedModifierInstalled = true;
+        Output::send<LogLevel::Verbose>(
+            STR("[BeamNGOrbitCamera] Dedicated camera modifier installed on vehicle camera manager ({}).\n"),
+            bAlreadyInstalled ? STR("existing") : STR("created")
+        );
+    }
+}
+
+void FBeamNGOrbitCameraMod::RestoreCleanCameraPose()
+{
+    if (!bCleanPosePending)
+        return;
+
+    UObject* Manager = PendingCleanPoseManager;
+    const FCameraPose CleanPose = PendingCleanPose;
+    const FCameraPose WrittenPose = PendingWrittenPose;
+
+    bCleanPosePending = false;
+    PendingCleanPoseManager = nullptr;
+
+    if (!Manager || Manager != CameraManager)
+        return;
+
+    FCameraPose LivePose{};
+    if (!ReadCameraCachePose(Manager, LivePose))
+    {
+        if (!bLoggedCleanPoseRestoreUnavailable)
+        {
+            bLoggedCleanPoseRestoreUnavailable = true;
+            Output::send<LogLevel::Warning>(
+                STR("[BeamNGOrbitCamera] CameraCachePrivate.POV is unavailable; clean-camera isolation is disabled for this frame.\n")
+            );
+        }
+        return;
+    }
+
+    // A cut, camera switch, later modifier, or another mod may have replaced
+    // the cache after our callback. Only take our own exact pose back out.
+    if (!CameraPosesMatch(LivePose, WrittenPose))
+        return;
+
+    if (!WriteCameraCachePose(Manager, CleanPose))
+    {
+        if (!bLoggedCleanPoseRestoreUnavailable)
+        {
+            bLoggedCleanPoseRestoreUnavailable = true;
+            Output::send<LogLevel::Warning>(
+                STR("[BeamNGOrbitCamera] Failed to restore CameraCachePrivate.POV; clean-camera isolation is disabled for this frame.\n")
+            );
+        }
+        return;
+    }
+
+    if (!bLoggedCleanPoseIsolationActive)
+    {
+        bLoggedCleanPoseIsolationActive = true;
+        Output::send<LogLevel::Verbose>(
+            STR("[BeamNGOrbitCamera] Clean camera-cache isolation active.\n")
+        );
+    }
+}
+
+bool FBeamNGOrbitCameraMod::CameraPosesMatch(const FCameraPose& Left, const FCameraPose& Right)
+{
+    // UE5 LWC Location/Rotation are doubles and are copied byte-for-byte from
+    // the Blueprint out parameters. FOV is a float, so compare its canonical
+    // stored representation rather than the double used by our math.
+    return Left.Location.X == Right.Location.X
+        && Left.Location.Y == Right.Location.Y
+        && Left.Location.Z == Right.Location.Z
+        && Left.Rotation.Pitch == Right.Rotation.Pitch
+        && Left.Rotation.Yaw == Right.Rotation.Yaw
+        && Left.Rotation.Roll == Right.Rotation.Roll
+        && static_cast<float>(Left.Fov) == static_cast<float>(Right.Fov);
+}
+
 void FBeamNGOrbitCameraMod::ProcessEventPost(UObject* Context, UFunction* Function, void* Params)
 {
     if (!CameraManager || !Context || !Function || !Params) return;
     if (Function->GetName() != STR("BlueprintModifyCamera")) return;
 
     auto* ContextClass = Context->GetClassPrivate();
-    if (!ContextClass || ContextClass->GetName() != STR("CameraModifier_CameraShake")) return;
+    if (!ContextClass || ContextClass->GetName() != DedicatedModifierClassName) return;
+    if (ContextClass->GetFullName() != DedicatedModifierClassFullName) return;
+    if (ReadObjectPropertyByName(Context, STR("CameraOwner")) != CameraManager) return;
+
+    DedicatedModifierInstance = Context;
+
+    if (!bLoggedDedicatedModifierActive)
+    {
+        bLoggedDedicatedModifierActive = true;
+        Output::send<LogLevel::Verbose>(
+            STR("[BeamNGOrbitCamera] Dedicated camera modifier callback active.\n")
+        );
+    }
 
 #if BEAMNG_ORBIT_CAMERA_DIAGNOSTICS
     if (bCameraManagerDumpRequested.exchange(false, std::memory_order_acq_rel))
@@ -217,6 +424,11 @@ void FBeamNGOrbitCameraMod::ProcessEventPost(UObject* Context, UFunction* Functi
         return;
     }
 
+    FCameraPose CleanPose{};
+    const bool bCleanPoseValid = ReadVec3(location, CleanPose.Location)
+        && ReadRot3(rotation, CleanPose.Rotation)
+        && ReadScalar(FovProperty, Params, CleanPose.Fov);
+
     UObject* Car = ResolveViewTargetActor(CameraManager);
     if (!Car)
     {
@@ -245,6 +457,27 @@ void FBeamNGOrbitCameraMod::ProcessEventPost(UObject* Context, UFunction* Functi
     {
         LogFailureOnce(STR("failed to write final Location/Rotation/FOV"));
         return;
+    }
+
+    if (bCleanPoseValid)
+    {
+        PendingCleanPoseManager = CameraManager;
+        PendingCleanPose = CleanPose;
+        PendingWrittenPose = {OutputLocation, OutputRotation, OutputFov};
+        bCleanPosePending = true;
+    }
+    else
+    {
+        bCleanPosePending = false;
+        PendingCleanPoseManager = nullptr;
+
+        if (!bLoggedCleanPoseCaptureUnavailable)
+        {
+            bLoggedCleanPoseCaptureUnavailable = true;
+            Output::send<LogLevel::Warning>(
+                STR("[BeamNGOrbitCamera] Failed to capture the clean BlueprintModifyCamera output; clean-camera isolation is unavailable.\n")
+            );
+        }
     }
 
     if (!bLoggedFirstOutput)
@@ -746,6 +979,10 @@ void FBeamNGOrbitCameraMod::ResetCameraState()
     OutputLocation = {};
     OutputRotation = {};
     OutputFov = Settings.CameraFovDeg;
+    PendingCleanPoseManager = nullptr;
+    PendingCleanPose = {};
+    PendingWrittenPose = {};
+    bCleanPosePending = false;
     bLoggedFirstOutput = false;
     bLoggedFailure = false;
 }

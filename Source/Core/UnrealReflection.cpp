@@ -5,6 +5,71 @@
 namespace MiniMath = BeamNGOrbitCamera::MiniMath;
 namespace BeamNGOrbitCamera::Reflection
 {
+    namespace
+    {
+        bool ResolveStructMember(const FStructAccess& Owner, const CharType* Name, FStructAccess& OutAccess)
+        {
+            if (!Owner.Type || !Owner.Value)
+            {
+                return false;
+            }
+
+            auto* Property = CastField<FStructProperty>(Owner.Type
+                        ->GetPropertyByNameInChain(Name));
+
+            if (!Property)
+            {
+                return false;
+            }
+
+            OutAccess.Property = Property;
+            OutAccess.Type = Property->GetStruct();
+            OutAccess.Value = Property
+                    ->ContainerPtrToValuePtr<void>(Owner.Value);
+
+            return OutAccess.Type && OutAccess.Value;
+        }
+
+        bool ResolveCameraCachePov(UObject* CameraManager, FStructAccess& OutPov)
+        {
+            if (!CameraManager)
+            {
+                return false;
+            }
+
+            auto* CacheProperty = CastField<FStructProperty>(CameraManager
+                        ->GetPropertyByNameInChain(STR("CameraCachePrivate")));
+
+            if (!CacheProperty)
+            {
+                return false;
+            }
+
+            FStructAccess Cache{};
+            Cache.Property = CacheProperty;
+            Cache.Type = CacheProperty->GetStruct();
+            Cache.Value = CacheProperty
+                    ->ContainerPtrToValuePtr<void>(CameraManager);
+
+            return ResolveStructMember(Cache, STR("POV"), OutPov);
+        }
+
+        bool ResolveCameraPoseFields(const FStructAccess& Pov, FStructAccess& OutLocation,
+            FStructAccess& OutRotation, FProperty*& OutFovProperty)
+        {
+            if (!ResolveStructMember(Pov, STR("Location"), OutLocation)
+                || !ResolveStructMember(Pov, STR("Rotation"), OutRotation))
+            {
+                return false;
+            }
+
+            OutFovProperty = Pov.Type
+                    ->GetPropertyByNameInChain(STR("FOV"));
+
+            return OutFovProperty != nullptr;
+        }
+    }
+
     UObject* ResolveViewTargetActor(UObject* CameraManager)
     {
         if (!CameraManager)
@@ -108,6 +173,42 @@ namespace BeamNGOrbitCamera::Reflection
         return Aspect;
     }
 
+    bool ReadCameraCachePose(UObject* CameraManager, FCameraPose& OutPose)
+    {
+        FStructAccess Pov{};
+        FStructAccess Location{};
+        FStructAccess Rotation{};
+        FProperty* FovProperty = nullptr;
+
+        if (!ResolveCameraCachePov(CameraManager, Pov)
+            || !ResolveCameraPoseFields(Pov, Location, Rotation, FovProperty))
+        {
+            return false;
+        }
+
+        return ReadVec3(Location, OutPose.Location)
+            && ReadRot3(Rotation, OutPose.Rotation)
+            && ReadScalar(FovProperty, Pov.Value, OutPose.Fov);
+    }
+
+    bool WriteCameraCachePose(UObject* CameraManager, const FCameraPose& Pose)
+    {
+        FStructAccess Pov{};
+        FStructAccess Location{};
+        FStructAccess Rotation{};
+        FProperty* FovProperty = nullptr;
+
+        if (!ResolveCameraCachePov(CameraManager, Pov)
+            || !ResolveCameraPoseFields(Pov, Location, Rotation, FovProperty))
+        {
+            return false;
+        }
+
+        return WriteVec3(Location, Pose.Location)
+            && WriteRot3(Rotation, Pose.Rotation)
+            && WriteScalar(FovProperty, Pov.Value, Pose.Fov);
+    }
+
     bool ObjectOuterChainContains(UObject* Object, UObject* WantedOuter)
     {
         if (!Object || !WantedOuter)
@@ -197,6 +298,66 @@ namespace BeamNGOrbitCamera::Reflection
 
         std::vector<uint8_t> Params(static_cast<size_t>(Size), uint8_t{0});
 
+        Context->ProcessEvent(Function, Params.data());
+
+        UObject** Result = ReturnProperty
+                ->ContainerPtrToValuePtr<UObject*>(Params.data());
+
+        if (!Result)
+        {
+            return false;
+        }
+
+        OutObject = *Result;
+        return true;
+    }
+
+    bool CallClassArgObjectFunction(UObject* Context, const CharType* FunctionName, const CharType* ArgumentName,
+        UClass* Argument, UObject*& OutObject)
+    {
+        OutObject = nullptr;
+
+        if (!Context || !Argument)
+        {
+            return false;
+        }
+
+        UFunction* Function = Context->GetFunctionByNameInChain(FromCharTypePtr<TCHAR>(FunctionName));
+
+        if (!Function)
+        {
+            return false;
+        }
+
+        auto* ArgumentProperty = CastField<FClassProperty>(Function
+                    ->GetPropertyByNameInChain(ArgumentName));
+
+        FProperty* ReturnProperty = Function
+                ->GetPropertyByNameInChain(STR("ReturnValue"));
+
+        if (!ArgumentProperty || !ReturnProperty)
+        {
+            return false;
+        }
+
+        const int32_t Size = Function->GetPropertiesSize();
+
+        if (Size <= 0)
+        {
+            return false;
+        }
+
+        std::vector<uint8_t> Params(static_cast<size_t>(Size), uint8_t{0});
+
+        UClass** ArgumentValue = ArgumentProperty
+                ->ContainerPtrToValuePtr<UClass*>(Params.data());
+
+        if (!ArgumentValue)
+        {
+            return false;
+        }
+
+        *ArgumentValue = Argument;
         Context->ProcessEvent(Function, Params.data());
 
         UObject** Result = ReturnProperty

@@ -41,6 +41,13 @@ struct FBodyGeometry
     MiniMath::FVector Up{};
 };
 
+struct FCameraPose
+{
+    MiniMath::FVector Location{};
+    MiniMath::FRotator Rotation{};
+    double Fov{};
+};
+
 struct FRawScriptArray
 {
     void* Data{};
