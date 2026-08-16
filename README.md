@@ -151,6 +151,14 @@ Build and deploy the DLL, configuration, and asset bundle with:
 
 Alternatively, set `ASSETO_CORSA_RALLY_HOME` and omit `-GameDir`. Deploy preserves an existing runtime config, copies the asset bundle to `acr/Content/Paks`, and removes an older bundle with the same name from `Content/Paks/LogicMods`.
 
+## Credits
+
+- Supernova Games Studios and Kunos Simulazioni for Assetto Corsa Rally.
+- The [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) contributors for the modding framework.
+- BeamNG GmbH for the orbit-camera inspiration.
+
+This mod is not affiliated with or endorsed by Supernova Games Studios, Kunos Simulazioni, BeamNG GmbH, or Epic Games.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
