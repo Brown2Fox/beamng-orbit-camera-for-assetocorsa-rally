@@ -64,8 +64,8 @@ This is the currently tested combination:
 | --- | --- |
 | BeamNG Orbit Camera | `0.13.4` |
 | Assetto Corsa Rally | Steam build `24097451` |
-| Unreal Engine | `5.4` |
-| UE4SS | `v3.0.1 Beta #0`, commit [`1c1a1497`](https://github.com/UE4SS-RE/RE-UE4SS/commit/1c1a1497f942c707f47ba668db75b25e86f6c08a), `Game__Shipping__Win64` |
+| Unreal Engine | `5.6` |
+| UE4SS | `v3.0.1 Beta #0`, commit [`2bfa839f`](https://github.com/UE4SS-RE/RE-UE4SS/commit/2bfa839fe2945f9230204145646b5be4ae84fde8), `Game__Shipping__Win64` |
 
 Using a different UE4SS revision may cause an ABI mismatch even if the mod compiles.
 
@@ -103,13 +103,13 @@ Requirements:
 - CMake 3.22 or newer;
 - Rust 1.73 or newer;
 - Git;
-- Unreal Engine 5.4 only when rebuilding the camera-modifier bundle.
+- Unreal Engine 5.6 only when rebuilding the camera-modifier bundle.
 
 Clone the pinned UE4SS revision beside the repository:
 
 ```powershell
 git clone https://github.com/UE4SS-RE/RE-UE4SS.git RE-UE4SS
-git -C RE-UE4SS checkout 1c1a1497f942c707f47ba668db75b25e86f6c08a
+git -C RE-UE4SS checkout 2bfa839fe2945f9230204145646b5be4ae84fde8
 git -C RE-UE4SS submodule update --init --recursive
 ```
 
@@ -122,7 +122,7 @@ Build the C++ mod from the repository root:
 
 `Development` includes extra diagnostics; `Shipping` compiles them out. Both target UE4SS `Game__Shipping__Win64`. Pass `-UE4SSDir <path>` if the pinned checkout is stored elsewhere.
 
-To rebuild the asset bundle, create any empty UE 5.4 Blueprint project; the project name does not matter. Add:
+To rebuild the asset bundle, create any empty UE 5.6 Blueprint project; the project name does not matter. Add:
 
 ```text
 /Game/Mods/BeamNGOrbitModifier/BP_BeamNGOrbitModifier
@@ -130,15 +130,13 @@ To rebuild the asset bundle, create any empty UE 5.4 Blueprint project; the proj
 
 The Blueprint must inherit from `CameraModifier` and override `BlueprintModifyCamera`. Put a `PrimaryAssetLabel` in the same directory, enable `Label Assets in My Directory`, set `Cook Rule` to `Always Cook`, and assign a dedicated chunk such as `1001`.
 
-Enable `Use Pak File`, `Use Io Store`, and `Generate Chunks`, then package for Windows. Rename the resulting chunk files and place them in the repository's `Data` directory:
+Enable `Use Pak File`, `Use Io Store`, and `Generate Chunks`, also set `IsEditorOnly` for `PrimaryAssetLabel` to false in Asset Manager. Then package for Windows. Rename the resulting chunk files and place them in the repository's `Data` directory:
 
 ```text
 pakchunk1001-Windows.pak  -> BeamNGOrbitModifier.pak
 pakchunk1001-Windows.ucas -> BeamNGOrbitModifier.ucas
 pakchunk1001-Windows.utoc -> BeamNGOrbitModifier.utoc
 ```
-
-The bundle only needs `BP_BeamNGOrbitModifier`; `ModActor` and BPModLoader registration are not used.
 
 ## Deploy
 
@@ -161,4 +159,4 @@ This mod is not affiliated with or endorsed by Supernova Games Studios, Kunos Si
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+[MIT](LICENSE).

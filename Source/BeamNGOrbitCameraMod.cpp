@@ -689,7 +689,8 @@ bool FBeamNGOrbitCameraMod::UpdateOrbitCamera(
     const double AspectRatio = ReadViewTargetAspectRatio(CameraManager);
     const double UnrealHorizontalFov = VerticalToHorizontalFovDeg(DynamicFov, AspectRatio);
 
-    OutputFov = std::clamp(UnrealHorizontalFov, 20.0, 160.0);
+    // OutputFov = std::clamp(UnrealHorizontalFov, 20.0, 160.0);
+    OutputFov = UnrealHorizontalFov; // tmp disable cpamping
 
     // Keep source-style zoom/dolly calculations in AC vertical-FOV units.
     LastAppliedFov = DynamicFov;
@@ -854,7 +855,12 @@ void FBeamNGOrbitCameraMod::UpdateDynamicPitchState(double Speed, bool bManualRo
     if (bManualRotationActive) TimeSinceManualRotation = 0.0;
     else TimeSinceManualRotation += DeltaTimeSeconds;
 
-    if (TimeSinceManualRotation <= DynamicPitchManualDelay) return;
+    if (TimeSinceManualRotation <= DynamicPitchManualDelay)
+    {
+        TemporalSigmoidGet(DynamicPitchBlend, DynamicPitchVelocity, DynamicPitchBlend, DeltaTimeSeconds,
+            2.0, 2.0, 2.0, 2.0);
+        return;
+    }
 
     if (bAbovePitchSpeedThreshold)
     {
@@ -881,7 +887,8 @@ void FBeamNGOrbitCameraMod::UpdateDynamicPitchState(double Speed, bool bManualRo
     const double target = bAbovePitchSpeedThreshold ? 1.0 : 0.0;
     const double rate = target > DynamicPitchBlend
         ? DynamicPitchRiseRate : DynamicPitchFallRate;
-    RateAccelStep(DynamicPitchBlend, DynamicPitchVelocity, target, rate, rate, DeltaTimeSeconds);
+    TemporalSigmoidGetWithRateAccel(DynamicPitchBlend, DynamicPitchVelocity, target,
+        DeltaTimeSeconds, rate, rate, rate);
 }
 
 double FBeamNGOrbitCameraMod::CalculateDynamicPitchLimit(const MiniMath::FVector& TargetPos,

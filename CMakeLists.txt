@@ -3,7 +3,7 @@ project(BeamNGOrbitCamera LANGUAGES CXX)
 
 set(
     BEAMNG_ORBIT_CAMERA_UE4SS_REVISION
-    "1c1a1497f942c707f47ba668db75b25e86f6c08a"
+    "2bfa839fe2945f9230204145646b5be4ae84fde8"
 )
 
 option(

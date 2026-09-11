@@ -92,44 +92,87 @@ namespace BeamNGOrbitCamera::MiniMath
         return Vector * Cosine + Cross(Normal, Vector) * Sine + Normal * (Dot(Normal, Vector) * (1.0 - Cosine));
     }
 
-    void RateAccelStep(double& Current, double& Velocity, double Target, double Rate, double Acceleration, double DeltaTimeSeconds)
+    namespace
     {
-        Rate = std::max(0.001, Rate);
-
-        Acceleration = std::max(0.001, Acceleration);
-
-        DeltaTimeSeconds = std::max(0.0, DeltaTimeSeconds);
-
-        const double Delta = Target - Current;
-
-        if (std::abs(Delta) < 0.000001 && std::abs(Velocity) < 0.000001)
+        double Sign(double Value)
         {
-            Current = Target;
-            Velocity = 0.0;
-            return;
+            return static_cast<double>((Value > 0.0) - (Value < 0.0));
+        }
+    }
+
+    double TemporalSigmoidGet(double& State, double& PreviousVelocity, double Sample, double DeltaTimeSeconds,
+        double InRate, double StartAcceleration, double StopAcceleration, double OutRate)
+    {
+        if (DeltaTimeSeconds <= 0.0)
+            return State;
+
+        const double Difference = Sample - State;
+        const double PreviousVelocityInDirection = PreviousVelocity
+            * std::max(Sign(PreviousVelocity * Difference), 0.0);
+        const double VelocitySquared = PreviousVelocityInDirection * PreviousVelocityInDirection;
+        const double AbsoluteDifference = std::abs(Difference);
+        const double DifferenceSign = Sign(Difference);
+
+        double AccelerationDeltaTime = 0.0;
+        const double TwiceAbsoluteDifference = AbsoluteDifference * 2.0;
+        if (VelocitySquared > TwiceAbsoluteDifference * StopAcceleration && TwiceAbsoluteDifference > 0.0)
+        {
+            AccelerationDeltaTime = -DifferenceSign
+                * std::min((VelocitySquared / TwiceAbsoluteDifference) * DeltaTimeSeconds,
+                    std::abs(PreviousVelocityInDirection));
+        }
+        else
+        {
+            AccelerationDeltaTime = DifferenceSign * StartAcceleration * DeltaTimeSeconds;
         }
 
-        const double Direction = Delta >= 0.0
-                ? 1.0 : -1.0;
+        const double RateLimit = Difference * State >= 0.0 ? OutRate : InRate;
+        State += DifferenceSign
+            * std::min(std::min(std::abs(PreviousVelocityInDirection + 0.5 * AccelerationDeltaTime), RateLimit)
+                    * DeltaTimeSeconds,
+                AbsoluteDifference);
 
-        const double BrakingRate = std::sqrt(std::max(0.0, 2.0 * Acceleration * std::abs(Delta)));
+        PreviousVelocity = DifferenceSign
+            * std::min(std::abs(PreviousVelocityInDirection + AccelerationDeltaTime), RateLimit);
 
-        const double DesiredVelocity = Direction * std::min(Rate, BrakingRate);
+        return State;
+    }
 
-        const double MaxVelocityDelta = Acceleration * DeltaTimeSeconds;
+    double TemporalSigmoidGetWithRateAccel(double& State, double& PreviousVelocity, double Sample,
+        double DeltaTimeSeconds, double RateLimit, double StartAcceleration, double StopAcceleration)
+    {
+        if (DeltaTimeSeconds <= 0.0)
+            return State;
 
-        Velocity += std::clamp(DesiredVelocity - Velocity, -MaxVelocityDelta, MaxVelocityDelta);
+        const double Difference = Sample - State;
+        const double PreviousVelocityInDirection = PreviousVelocity
+            * std::max(Sign(PreviousVelocity * Difference), 0.0);
+        const double VelocitySquared = PreviousVelocityInDirection * PreviousVelocityInDirection;
+        const double AbsoluteDifference = std::abs(Difference);
+        const double DifferenceSign = Sign(Difference);
 
-        const double NextValue = Current + Velocity * DeltaTimeSeconds;
-
-        if (Delta * (Target - NextValue) <= 0.0)
+        double AccelerationDeltaTime = 0.0;
+        const double TwiceAbsoluteDifference = AbsoluteDifference * 2.0;
+        if (VelocitySquared > TwiceAbsoluteDifference * StopAcceleration && TwiceAbsoluteDifference > 0.0)
         {
-            Current = Target;
-            Velocity = 0.0;
-            return;
+            AccelerationDeltaTime = -DifferenceSign
+                * std::min((VelocitySquared / TwiceAbsoluteDifference) * DeltaTimeSeconds,
+                    std::abs(PreviousVelocityInDirection));
+        }
+        else
+        {
+            AccelerationDeltaTime = DifferenceSign * StartAcceleration * DeltaTimeSeconds;
         }
 
-        Current = std::clamp(NextValue, 0.0, 1.0);
+        State += DifferenceSign
+            * std::min(std::min(std::abs(PreviousVelocityInDirection + 0.5 * AccelerationDeltaTime), RateLimit)
+                    * DeltaTimeSeconds,
+                AbsoluteDifference);
+
+        PreviousVelocity = DifferenceSign
+            * std::min(std::abs(PreviousVelocityInDirection + AccelerationDeltaTime), RateLimit);
+
+        return State;
     }
 
     double VerticalToHorizontalFovDeg(double VerticalFovDeg, double AspectRatio)
@@ -137,7 +180,8 @@ namespace BeamNGOrbitCamera::MiniMath
         const double Aspect = std::isfinite(AspectRatio) && AspectRatio > 0.5 && AspectRatio < 5.0
                 ? AspectRatio : 16.0 / 9.0;
 
-        const double VerticalRad = std::clamp(VerticalFovDeg, 1.0, 170.0) * DegToRad;
+        // const double VerticalRad = std::clamp(VerticalFovDeg, 1.0, 170.0) * DegToRad;
+        const double VerticalRad = VerticalFovDeg * DegToRad; // tmp disable clamping
 
         return 2.0 * std::atan(std::tan(VerticalRad * 0.5) * Aspect) * RadToDeg;
     }

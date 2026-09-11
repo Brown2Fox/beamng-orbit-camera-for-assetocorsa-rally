@@ -67,7 +67,11 @@ namespace BeamNGOrbitCamera::MiniMath
 
     FVector RotateAroundAxis(const FVector& Vector, const FVector& Axis, double Angle);
 
-    void RateAccelStep(double& Current, double& Velocity, double Target, double Rate, double Acceleration, double DeltaTimeSeconds);
+    double TemporalSigmoidGet(double& State, double& PreviousVelocity, double Sample, double DeltaTimeSeconds,
+        double InRate, double StartAcceleration, double StopAcceleration, double OutRate);
+
+    double TemporalSigmoidGetWithRateAccel(double& State, double& PreviousVelocity, double Sample,
+        double DeltaTimeSeconds, double RateLimit, double StartAcceleration, double StopAcceleration);
 
     double VerticalToHorizontalFovDeg(double VerticalFovDeg, double AspectRatio);
 
