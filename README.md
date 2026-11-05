@@ -7,7 +7,7 @@ An unofficial BeamNG-style orbit camera for Assetto Corsa Rally. It replaces the
 
 ## Installation
 
-Download the release archive and extract it into the Assetto Corsa Rally installation directory—the folder containing `acr`. The archive includes the supported UE4SS build with the mod already enabled.
+Download `BeamNGOrbitCamera-v<version>.zip` from [Releases](https://github.com/Brown2Fox/beamng-orbit-camera-for-assetocorsa-rally/releases) and extract it into the Assetto Corsa Rally installation directory—the folder containing `acr`. The archive includes the supported UE4SS build with the mod already enabled.
 
 The installed files should include:
 
@@ -122,6 +122,8 @@ Build the C++ mod from the repository root:
 
 `Development` includes extra diagnostics; `Shipping` compiles them out. Both target UE4SS `Game__Shipping__Win64`. Pass `-UE4SSDir <path>` if the pinned checkout is stored elsewhere.
 
+Building and packaging are separate steps. Build `Shipping` after C++ changes, then run `tools/package.ps1` to create the [release package](#release-package) from that DLL. Packaging never starts a build or checks whether the DLL is up to date.
+
 To rebuild the asset bundle, create any empty UE 5.6 Blueprint project; the project name does not matter. Add:
 
 ```text
@@ -148,6 +150,21 @@ Build and deploy the DLL, configuration, and asset bundle with:
 ```
 
 Alternatively, set `ASSETO_CORSA_RALLY_HOME` and omit `-GameDir`. Deploy installs the mod DLL and asset bundle into the game directory and requires UE4SS to be installed first.
+
+## Release package
+
+Build once, then package the resulting Shipping DLL:
+
+```powershell
+.\tools\build.ps1 Shipping
+.\tools\package.ps1
+```
+
+`package.ps1` creates `dist/BeamNGOrbitCamera-v<version>.zip` using the existing DLL in `build/Shipping/Source/Game__Shipping__Win64`, the complete supported UE4SS distribution, default settings, and the camera asset bundle. It stops with a build instruction if the DLL is missing. If Shipping is already up to date, run only `package.ps1`.
+
+The release UE4SS archive is selected by SHA-256 from `D:\DevTools\UE4SS`, regardless of its filename; `zDEV` does not match. Pass `-UE4SSArchiveDir <path>` to search another directory. The mod is enabled in both UE4SS mod lists, and the archive follows the installation layout above. The `dist/` directory is ignored by Git. An existing archive with the same name is preserved; move or delete it before packaging again.
+
+Attach this ZIP to the corresponding [GitHub release](https://github.com/Brown2Fox/beamng-orbit-camera-for-assetocorsa-rally/releases). Packaging creates the local archive; it does not upload it.
 
 ## Credits
 

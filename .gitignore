@@ -1,5 +1,6 @@
 # Local build output
 /build/
+/dist/
 
 # UE4SS is an external checkout and must match the runtime ABI.
 /RE-UE4SS/
