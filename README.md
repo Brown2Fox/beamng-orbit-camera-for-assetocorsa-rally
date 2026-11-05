@@ -3,7 +3,7 @@
 An unofficial BeamNG-style orbit camera for Assetto Corsa Rally. It replaces the `ThirdFar` camera.
 
 > [!WARNING]
-> This is an experimental mod that depends on undocumented game and UE4SS internals. A game or UE4SS update may require a mod update. [See tested versions](#tested-versions).
+> This is an experimental mod, so don't expect a polished user experience. It depends on undocumented game and UE4SS internals. A game or UE4SS update may require a mod update. [See tested versions](#tested-versions).
 
 ## Installation
 
