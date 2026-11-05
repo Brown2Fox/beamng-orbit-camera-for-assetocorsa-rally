@@ -7,7 +7,7 @@ An unofficial BeamNG-style orbit camera for Assetto Corsa Rally. It replaces the
 
 ## Installation
 
-Download `BeamNGOrbitCamera-v<version>.zip` from [Releases](https://github.com/Brown2Fox/beamng-orbit-camera-for-assetocorsa-rally/releases) and extract it into the Assetto Corsa Rally directory containing `acr`. UE4SS is included and the mod is registered with the loader.
+Download `BeamNGOrbitCamera-v<version>.zip` from [Releases](https://github.com/Brown2Fox/beamng-orbit-camera-for-assetocorsa-rally/releases) and extract it into the Assetto Corsa Rally directory containing `acr`.
 
 ```text
 Assetto Corsa Rally/
@@ -37,6 +37,9 @@ If the mod does not load, make sure `acr/Binaries/Win64/ue4ss/Mods/mods.txt` con
 ```text
 BeamNGOrbitCamera : 1
 ```
+
+> [!NOTE]
+> This mod requires UE4SS. The required version is included in the archive. [See tested versions](#tested-versions).
 
 ## Controls
 
