@@ -32,8 +32,7 @@ $Mod = "$Runtime/Mods/BeamNGOrbitCamera"
 $Files = [ordered]@{
     "$Mod/dlls/main.dll" = $BuiltDll
     "$Mod/Data/config.ini" = (Join-Path $RepoRoot "Data\config.ini")
-    "README.md" = (Join-Path $RepoRoot "README.md")
-    "LICENSE" = (Join-Path $RepoRoot "LICENSE")
+    "README.md" = (Join-Path $RepoRoot "res\SHORT_README_FOR_PACKAGING.md")
 }
 foreach ($Extension in @("pak", "ucas", "utoc")) {
     $Name = "BeamNGOrbitModifier.$Extension"
