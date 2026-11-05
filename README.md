@@ -3,7 +3,7 @@
 An unofficial BeamNG-style orbit camera for Assetto Corsa Rally. It replaces the `ThirdFar` camera.
 
 > [!WARNING]
-> This is an experimental mod that depends on undocumented game and UE4SS internals. A game or UE4SS update may require a mod update.
+> This is an experimental mod that depends on undocumented game and UE4SS internals. A game or UE4SS update may require a mod update. [See tested versions](#tested-versions).
 
 ## Installation
 
@@ -30,11 +30,9 @@ Assetto Corsa Rally/
         └── BeamNGOrbitModifier.utoc
 ```
 
-Start a driving session, select the `ThirdFar` camera, and press `Delete` to enable the mod. Settings are stored in `Mods/BeamNGOrbitCamera/Data/config.ini`.
+Start a driving session, select the `ThirdFar` camera, and press `Delete` to enable the mod.
 
-### Manual installation with an existing UE4SS
-
-If the supported UE4SS version is already installed, copy only `ue4ss/Mods/BeamNGOrbitCamera` and the three `BeamNGOrbitModifier` files from the archive. Add the following line to `acr/Binaries/Win64/ue4ss/Mods/mods.txt`:
+If the mod does not load, make sure `acr/Binaries/Win64/ue4ss/Mods/mods.txt` contains this line:
 
 ```text
 BeamNGOrbitCamera : 1
@@ -54,16 +52,25 @@ BeamNGOrbitCamera : 1
 
 The orbit camera starts disabled. Collision starts enabled.
 
-## Tested versions
+## Settings
 
-| Component | Version |
-| --- | --- |
-| BeamNG Orbit Camera | `0.13.4` |
-| Assetto Corsa Rally | Steam build `24097451` |
-| Unreal Engine | `5.6` |
-| UE4SS | `v3.0.1 Beta #0`, commit [`2bfa839f`](https://github.com/UE4SS-RE/RE-UE4SS/commit/2bfa839fe2945f9230204145646b5be4ae84fde8), `Game__Shipping__Win64` |
+Edit `acr/Binaries/Win64/ue4ss/Mods/BeamNGOrbitCamera/Data/config.ini` while the game is closed. Settings are loaded at startup.
 
-Using a different UE4SS revision may cause an ABI mismatch even if the mod compiles.
+| Section | Setting | Effect |
+| --- | --- | --- |
+| `Camera` | `Distance` | Default camera distance in metres. |
+| `Camera` | `FOV`, `Pitch` | Base field of view and orbit pitch in degrees. |
+| `Camera` | `TargetHeightOffset` | Vertical offset of the camera target in centimetres. |
+| `Camera` | `Relaxation` | Follow-anchor distance in metres, affecting how the camera follows turns. |
+| `Dynamic` | `FOVAtSpeed` | Additional field of view at speed, in degrees. |
+| `Dynamic` | `PitchAtSpeed` | Maximum pitch adjustment at speed, in degrees. |
+| `Dynamic` | `HeightAtSpeed` | Strength of the speed-dependent height offset, in metres. |
+| `Gamepad` | `OrbitDeadzone`, `ZoomDeadzone` | Stick movement ignored around the centre (`0.15` means 15%). |
+| `Gamepad` | `ResponseExponent` | Stick response curve: `1` is linear; higher values soften input near the centre. |
+| `Gamepad` | `OrbitSensitivity`, `ZoomSensitivity` | Input multipliers; `1` is the default. |
+| `Collision` | `Enabled` | Camera collision at startup (`true` or `false`). |
+
+Set any `Dynamic` value to `0` to disable that effect.
 
 ## Uninstalling
 
@@ -83,11 +90,22 @@ If UE4SS is also used by other mods, remove only BeamNG Orbit Camera:
 2. Delete `ue4ss/Mods/BeamNGOrbitCamera`.
 3. Delete the three `BeamNGOrbitModifier` files from `acr/Content/Paks`.
 
-## Camera integration
+## How it works
 
 The UE4SS C++ mod adds `BP_BeamNGOrbitModifier` to the `APlayerCameraManager` of `BC_CarPlayerCameraManager_C`.
 
 When enabled in `ThirdFar`, it applies orbit, zoom, target height, and collision after `BlueprintModifyCamera`. The original camera pose is restored before the next update to avoid affecting the game's camera blending.
+
+## Tested versions
+
+| Component | Version |
+| --- | --- |
+| BeamNG Orbit Camera | `0.13.4` |
+| Assetto Corsa Rally | Steam build `24097451` |
+| Unreal Engine | `5.6` |
+| UE4SS | `v3.0.1 Beta #0`, commit [`2bfa839f`](https://github.com/UE4SS-RE/RE-UE4SS/commit/2bfa839fe2945f9230204145646b5be4ae84fde8), `Game__Shipping__Win64` |
+
+Using a different UE4SS revision may cause an ABI mismatch even if the mod compiles.
 
 ## Development Setup
 
