@@ -7,9 +7,7 @@ An unofficial BeamNG-style orbit camera for Assetto Corsa Rally. It replaces the
 
 ## Installation
 
-Download `BeamNGOrbitCamera-v<version>.zip` from [Releases](https://github.com/Brown2Fox/beamng-orbit-camera-for-assetocorsa-rally/releases) and extract it into the Assetto Corsa Rally installation directory—the folder containing `acr`. The archive includes the supported UE4SS build with the mod already enabled.
-
-The installed files should include:
+Download `BeamNGOrbitCamera-v<version>.zip` from [Releases](https://github.com/Brown2Fox/beamng-orbit-camera-for-assetocorsa-rally/releases) and extract it into the Assetto Corsa Rally directory containing `acr`. UE4SS is included and the mod is registered with the loader.
 
 ```text
 Assetto Corsa Rally/
@@ -46,19 +44,17 @@ BeamNGOrbitCamera : 1
 
 | Action | Gamepad | Keyboard |
 | --- | --- | --- |
-| Enable or disable orbit camera | — | `Delete` |
-| Enable or disable collision | — | `Insert` or NumPad `0` |
+| Enable or disable orbit camera | - | `Delete` |
+| Enable or disable collision | - | `Insert` or NumPad `0` |
 | Orbit | Right stick | NumPad `4`/`6` and `8`/`2` |
 | Zoom | `RB/R1` + left stick Y | NumPad `9`/`3` |
-| Adjust target height | — | NumPad `7`/`1` |
+| Adjust target height | - | NumPad `7`/`1` |
 | Recenter | `R3` | NumPad `5` |
 | Recenter, keep pitch and distance | `L3` | `Ctrl` + NumPad `5` |
 
 The orbit camera starts disabled. Collision starts enabled.
 
-## Versions
-
-This is the currently tested combination:
+## Tested versions
 
 | Component | Version |
 | --- | --- |
@@ -87,13 +83,11 @@ If UE4SS is also used by other mods, remove only BeamNG Orbit Camera:
 2. Delete `ue4ss/Mods/BeamNGOrbitCamera`.
 3. Delete the three `BeamNGOrbitModifier` files from `acr/Content/Paks`.
 
-## How It Works
+## Camera integration
 
-The mod loads as a UE4SS C++ mod. It loads a small packaged `BP_BeamNGOrbitModifier` asset and adds it to the vehicle's `APlayerCameraManager` when `BC_CarPlayerCameraManager_C` appears. UE4SS then provides a `ProcessEventPost` callback for the modifier's `BlueprintModifyCamera` event.
+The UE4SS C++ mod adds `BP_BeamNGOrbitModifier` to the `APlayerCameraManager` of `BC_CarPlayerCameraManager_C`.
 
-Each frame the game computes its camera normally. After `BlueprintModifyCamera` finishes, the mod reads that clean result and, only when `ThirdFar` is active and the mod is enabled, applies orbit, zoom, target height, and collision. The clean pose is restored before the next camera update so the custom result does not feed back into the game's blending or other camera modifiers.
-
-The integration uses Unreal reflection and runtime object names rather than fixed addresses in a particular game executable. This makes it less sensitive to binary patches, but renamed classes, functions, properties, Blueprint changes, or an incompatible UE4SS ABI can still require an update.
+When enabled in `ThirdFar`, it applies orbit, zoom, target height, and collision after `BlueprintModifyCamera`. The original camera pose is restored before the next update to avoid affecting the game's camera blending.
 
 ## Development Setup
 
@@ -105,7 +99,7 @@ Requirements:
 - Git;
 - Unreal Engine 5.6 only when rebuilding the camera-modifier bundle.
 
-Clone the pinned UE4SS revision beside the repository:
+From the repository root, clone the pinned UE4SS revision:
 
 ```powershell
 git clone https://github.com/UE4SS-RE/RE-UE4SS.git RE-UE4SS
@@ -122,9 +116,9 @@ Build the C++ mod from the repository root:
 
 `Development` includes extra diagnostics; `Shipping` compiles them out. Both target UE4SS `Game__Shipping__Win64`. Pass `-UE4SSDir <path>` if the pinned checkout is stored elsewhere.
 
-Building and packaging are separate steps. Build `Shipping` after C++ changes, then run `tools/package.ps1` to create the [release package](#release-package) from that DLL. Packaging never starts a build or checks whether the DLL is up to date.
+### Camera asset bundle
 
-To rebuild the asset bundle, create any empty UE 5.6 Blueprint project; the project name does not matter. Add:
+In a UE 5.6 Blueprint project, add:
 
 ```text
 /Game/Mods/BeamNGOrbitModifier/BP_BeamNGOrbitModifier
@@ -146,25 +140,20 @@ Build and deploy the DLL, configuration, and asset bundle with:
 
 ```powershell
 .\tools\build.ps1 Development -Deploy -GameDir "D:\SteamLibrary\steamapps\common\Assetto Corsa Rally"
-.\tools\build.ps1 Shipping -Deploy -GameDir "D:\SteamLibrary\steamapps\common\Assetto Corsa Rally"
 ```
 
-Alternatively, set `ASSETO_CORSA_RALLY_HOME` and omit `-GameDir`. Deploy installs the mod DLL and asset bundle into the game directory and requires UE4SS to be installed first.
+Requires UE4SS in the game directory. Use `Shipping` for a build without diagnostics. `ASSETO_CORSA_RALLY_HOME` can replace `-GameDir`. Existing mod settings are preserved.
 
 ## Release package
-
-Build once, then package the resulting Shipping DLL:
 
 ```powershell
 .\tools\build.ps1 Shipping
 .\tools\package.ps1
 ```
 
-`package.ps1` creates `dist/BeamNGOrbitCamera-v<version>.zip` using the existing DLL in `build/Shipping/Source/Game__Shipping__Win64`, the complete supported UE4SS distribution, default settings, and the camera asset bundle. It stops with a build instruction if the DLL is missing. If Shipping is already up to date, run only `package.ps1`.
+`package.ps1` packages the existing Shipping DLL without rebuilding. Output: `dist/BeamNGOrbitCamera-v<version>.zip`.
 
-The release UE4SS archive is selected by SHA-256 from `D:\DevTools\UE4SS`, regardless of its filename; `zDEV` does not match. Pass `-UE4SSArchiveDir <path>` to search another directory. The mod is enabled in both UE4SS mod lists, and the archive follows the installation layout above. The `dist/` directory is ignored by Git. An existing archive with the same name is preserved; move or delete it before packaging again.
-
-Attach this ZIP to the corresponding [GitHub release](https://github.com/Brown2Fox/beamng-orbit-camera-for-assetocorsa-rally/releases). Packaging creates the local archive; it does not upload it.
+Requires `UE4SS_v3.0.1-1127-g2bfa839f.zip` in `D:\DevTools\UE4SS`; override the directory with `-UE4SSArchiveDir <path>`. Move or delete an existing output ZIP before packaging again.
 
 ## Credits
 
